@@ -14,7 +14,7 @@ Current version: 1.0a
 		$novosibirsk = new NgsWeather('nsk','meteo_lenina_12');
 		echo $novosibirsk->temperature; // +20
 
-## Available cities and meteostations
+## Available cities and weather stations
 
 * Novosibirsk (nsk, meteo_lenina_12)
 * Academgorodok (academgorodok, meteo_academ_1_mts)
