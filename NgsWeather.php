@@ -5,101 +5,136 @@
  *
  * Receive and parse weather data from pogoda.ngs.ru API (http://pogoda.ngs.ru/json/)
  *
- * @version 1.0a
- * @author  Dmitry Lakhno <d.lakhno@office.ngs.ru>
+ * @version   1.0.2a
+ * @author    Dmitry Lakhno <d.lakhno@office.ngs.ru>
  * @copyright 2013 Dmitry Lakhno
  */
 
 class NgsWeather
 {
 	/**
+	 * Wind chill (Celsius, °C)
+	 *
+	 * @var integer|string
+	 */
+	public $wind_chill;
+
+	/**
+	 * Heat Index (Celsius, °C)
+	 *
+	 * @var integer|string
+	 */
+	public $heat_index;
+
+	/**
 	 * Pressure (Torr, mm Hg.)
+	 *
 	 * @var integer
 	 */
 	public $pressure;
 
 	/**
 	 * Temperature (Celsius, °C)
+	 *
 	 * @var integer|string
 	 */
 	public $temperature;
 
 	/**
 	 * Wind speed (m/s)
+	 *
 	 * @var integer
 	 */
 	public $wind_speed;
 
 	/**
 	 * Average wind speed in the past 10 minutes (m/s)
+	 *
 	 * @var integer
 	 */
 	public $wind_speed_10_min_avg;
 
 	/**
 	 * Wind direction (degrees)
+	 *
 	 * @var integer
 	 */
 	public $wind_direction;
 
 	/**
 	 * Humidity (%)
+	 *
 	 * @var integer
 	 */
 	public $humidity;
 
 	/**
 	 * Time of sunrise (hmm or hhmm)
+	 *
 	 * @var integer
 	 */
 	public $time_of_sunrise;
 
 	/**
 	 * Time of sunrise in readable format (h:mm or hh:mm)
+	 *
 	 * @var bool|string
 	 */
 	public $time_of_sunrise_normal;
 
 	/**
 	 * Time of sunset (hmm or hhmm)
+	 *
 	 * @var integer
 	 */
 	public $time_of_sunset;
 
 	/**
 	 * Time of sunset in readable format (h:mm or hh:mm)
+	 *
 	 * @var bool|string
 	 */
 	public $time_of_sunset_normal;
 
 	/**
 	 * Ultraviolet index
+	 *
 	 * @var integer
 	 */
 	public $uv;
 
 	/**
 	 * Solar radiation
+	 *
 	 * @var integer
 	 */
 	public $solar_radiation;
 
 	/**
 	 * Duration of the day (h:mm or h:mm or optionally hh h. mm min.)
+	 *
 	 * @var string
 	 */
 	public $duration_of_the_day;
 
 	/**
 	 * Wind direction name
+	 *
 	 * @var string
 	 */
 	public $wind_direction_name;
+	
+	/**
+	 * stdClass with weather data response
+	 *
+	 * @var object
+	 */
+	private $weather;
 
 	public function __construct($cityCode, $weatherStation)
 	{
 		$this->getData($cityCode, $weatherStation);
-
+		$this->setVariables();
 		$this->time_of_sunrise_normal = $this->getConvertedTime($this->time_of_sunrise);
 		$this->time_of_sunset_normal = $this->getConvertedTime($this->time_of_sunset);
 		$this->duration_of_the_day = $this->getDayDuration($this->time_of_sunrise_normal, $this->time_of_sunset_normal);
@@ -110,8 +145,9 @@ class NgsWeather
 	/**
 	 * Sending request, receiving data, decoding it from JSON
 	 *
-	 * @param string $cityCode City alias
+	 * @param string $cityCode       City alias
 	 * @param string $weatherStation Weather station code
+	 *
 	 * @throws Exception Throws exception if can't receive weather data
 	 */
 	public function getData($cityCode, $weatherStation)
@@ -119,11 +155,11 @@ class NgsWeather
 		$requestData = array(
 			'method'  => 'POST',
 			'header'  => 'Connection: close\r\n' .
-						 'Content-Type: application/json',
+				'Content-Type: application/json',
 			'content' => '{
-							"method": "getForecast",
-							"params": [ "' . $weatherStation . '", "' . $cityCode . '"]
-						  }'
+					"method": "getForecast",
+					"params": [ "' . $weatherStation . '", "' . $cityCode . '"]
+				}'
 		);
 		$requestContext = stream_context_create(array('http' => $requestData));
 		$requestResult = @file_get_contents('http://pogoda.ngs.ru/json/', false, $requestContext);
@@ -132,27 +168,32 @@ class NgsWeather
 		if (!$requestResult || $requestArray->error) {
 			throw new Exception("Can't receive weather data for $cityCode - $weatherStation");
 		} else {
-			/**
-			 * Reassigning variables
-			 */
-			$this->pressure = $requestArray->result->pressure;
-			$this->temperature = $requestArray->result->temperature;
-			$this->wind_speed = $requestArray->result->wind_speed;
-			$this->wind_speed_10_min_avg = $requestArray->result->wind_speed_10_min_avg;
-			$this->wind_direction = $requestArray->result->wind_direction;
-			$this->humidity = $requestArray->result->humidity;
-			$this->time_of_sunrise = $requestArray->result->time_of_sunrise;
-			$this->time_of_sunset = $requestArray->result->time_of_sunset;
-			$this->uv = $requestArray->result->uv;
-			$this->solar_radiation = $requestArray->result->solar_radiation;
+			$this->weather = $requestArray->result;
 		}
+	}
 
+	/**
+	 * Creating variables from request response
+	 */
+	private function setVariables()
+	{
+		$reflect = new ReflectionObject($this);
+		$props = $reflect->getProperties();
+		# As it contains not only fields but also methods we can't simply merge them
+		foreach ($this->weather as $key => $value) {
+			foreach ($props as $prop) {
+				if ($prop->getName() == $key && $prop->isPublic()) {
+					$this->{$key} = $value;
+				}
+			}
+		}
 	}
 
 	/**
 	 * Function to convert date from hmm or hhmm into h:mm or hh:mm relatively
 	 *
 	 * @param string $time Time in hmm or hhmm format
+	 *
 	 * @return string in h:mm or hh:mm format
 	 * @throws Exception Throws exception when can't reformat
 	 */
@@ -170,9 +211,10 @@ class NgsWeather
 	/**
 	 * Function to calculate the length of the day
 	 *
-	 * @param string $startTime Time of sunrise in h:mm or hh:mm format
-	 * @param string $endTime Time of sunset in h:mm or hh:mm format
+	 * @param string  $startTime Time of sunrise in h:mm or hh:mm format
+	 * @param string  $endTime   Time of sunset in h:mm or hh:mm format
 	 * @param boolean $formatted Should we format time or not
+	 *
 	 * @return string Duration of the day
 	 */
 	public function getDayDuration($startTime, $endTime, $formatted = false)
@@ -193,6 +235,7 @@ class NgsWeather
 	 * Function to determine the direction of the wind by degrees
 	 *
 	 * @param integer|string wind direction in degrees
+	 *
 	 * @return string Wind direction naming
 	 */
 	public function getWindDirection($degree)
