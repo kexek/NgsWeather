@@ -6,7 +6,7 @@
  * Receive and parse weather data from pogoda.ngs.ru API (http://pogoda.ngs.ru/json/)
  *
  * @version   1.0.2a
- * @author    Dmitry Lakhno <d.lakhno@office.ngs.ru>
+ * @author    Dmitry Lakhno <mail@kexek.me>
  * @copyright 2013 Dmitry Lakhno
  */
 
